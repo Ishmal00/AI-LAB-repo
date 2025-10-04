@@ -1,0 +1,4 @@
+ Agent Memory Log Room: bedroom, Temp: 12, Action: Turn off AC
+Room: living room, Temp: 20, Action: Do nothing
+Room: TV lounge, Temp: 26, Action: Turn on AC
+Room: dining area, Temp: 45, Action: Turn on AC
