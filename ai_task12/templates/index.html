@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Michelin Star Predictor</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for aesthetic appeal */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f3e8; /* Light cream background */
+        }
+        .card {
+            background-color: #ffffff;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 0 10px -5px rgba(0, 0, 0, 0.04);
+            border: 1px solid #e0e0e0;
+        }
+        .predict-button {
+            transition: all 0.2s;
+        }
+        .predict-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        /* Specific result colors */
+        .stars-0 { color: #888; }
+        .stars-1 { color: #facc15; } /* Gold/Yellow */
+        .stars-2 { color: #f59e0b; } /* Orange */
+        .stars-3 { color: #dc2626; } /* Red */
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="card w-full max-w-lg p-8 rounded-xl">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2 text-center">
+            Michelin Star Predictor
+        </h1>
+        <p class="text-center text-gray-500 mb-8">
+            Estimate the star rating for a potential restaurant based on features.
+        </p>
+
+        <!-- Prediction Form -->
+        <form id="predictionForm" class="space-y-6">
+            <!-- Cuisine Select -->
+            <div>
+                <label for="cuisine" class="block text-sm font-medium text-gray-700 mb-1">Cuisine Type</label>
+                <select id="cuisine" name="cuisine" required
+                        class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md shadow-sm">
+                    <option value="" disabled selected>Select a cuisine</option>
+                    {% for cuisine in options.cuisines %}
+                    <option value="{{ cuisine }}">{{ cuisine }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Price Range Select -->
+            <div>
+                <label for="price_range" class="block text-sm font-medium text-gray-700 mb-1">Price Range</label>
+                <select id="price_range" name="price_range" required
+                        class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md shadow-sm">
+                    <option value="" disabled selected>Select price range</option>
+                    {% for price in options.prices %}
+                    <option value="{{ price }}">{{ price }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Location Select -->
+            <div>
+                <label for="location" class="block text-sm font-medium text-gray-700 mb-1">Location Type</label>
+                <select id="location" name="location" required
+                        class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md shadow-sm">
+                    <option value="" disabled selected>Select location type</option>
+                    {% for location in options.locations %}
+                    <option value="{{ location }}">{{ location }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Review Score Input -->
+            <div>
+                <label for="Review_Score" class="block text-sm font-medium text-gray-700 mb-1">Average Review Score (0.0 to 5.0)</label>
+                <input type="number" id="Review_Score" name="Review_Score" required
+                       min="0.0" max="5.0" step="0.1" placeholder="e.g., 4.5"
+                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
+            </div>
+
+            <!-- Prediction Button -->
+            <button type="submit"
+                    class="predict-button w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-md text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                Predict Michelin Stars
+            </button>
+        </form>
+
+        <!-- Result Display Area -->
+        <div id="resultArea" class="mt-8 pt-6 border-t border-gray-200 hidden">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">Prediction Result</h2>
+            <div id="predictionOutput" class="text-center p-6 rounded-lg bg-gray-50 border border-dashed border-gray-300">
+                <!-- Content injected by JavaScript -->
+            </div>
+            <p id="confidenceOutput" class="text-center text-sm text-gray-500 mt-2"></p>
+        </div>
+
+        <!-- Error Message Area -->
+        <div id="errorArea" class="mt-8 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md hidden">
+            <p id="errorMessage"></p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('predictionForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const form = event.target;
+            const formData = new FormData(form);
+            const formObject = {};
+            formData.forEach((value, key) => { formObject[key] = value; });
+
+            const resultArea = document.getElementById('resultArea');
+            const predictionOutput = document.getElementById('predictionOutput');
+            const confidenceOutput = document.getElementById('confidenceOutput');
+            const errorArea = document.getElementById('errorArea');
+            const errorMessage = document.getElementById('errorMessage');
+
+            // Reset previous results/errors
+            resultArea.classList.add('hidden');
+            errorArea.classList.add('hidden');
+            predictionOutput.innerHTML = '<span class="text-gray-500">Predicting...</span>';
+
+            try {
+                // Send data to the Flask backend
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    // Display success result
+                    const starCount = result.raw_index;
+                    let starEmoji = '';
+                    let colorClass = `stars-${starCount}`;
+
+                    if (starCount > 0) {
+                        // Generate the number of stars needed
+                        starEmoji = '⭐'.repeat(starCount);
+                    } else {
+                        // For 0 stars, use a neutral emoji/symbol
+                        starEmoji = '➖';
+                    }
+
+                    predictionOutput.innerHTML = `
+                        <p class="text-5xl mb-3">${starEmoji}</p>
+                        <p class="text-2xl font-bold ${colorClass}">${result.prediction}</p>
+                    `;
+                    confidenceOutput.textContent = `Confidence: ${result.confidence}`;
+                    resultArea.classList.remove('hidden');
+
+                } else {
+                    // Display error from backend
+                    errorMessage.textContent = result.message || 'An unknown error occurred during prediction.';
+                    errorArea.classList.remove('hidden');
+                }
+
+            } catch (error) {
+                // Display network/fetch error
+                errorMessage.textContent = 'A network error occurred. Ensure the Flask server is running.';
+                errorArea.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
